@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Browser } from 'playwright-core';
-import { launch, PagePool, resolveBrowser } from '../../src/browser.ts';
+import { browserCandidates, launch, PagePool } from '../../src/browser.ts';
 import { FontRegistry } from '../../src/fonts/registry.ts';
 import { renderOne } from '../../src/render.ts';
 
@@ -18,7 +18,7 @@ let pool: PagePool;
 let outDir: string;
 
 before(async () => {
-  browser = await launch(resolveBrowser());
+  ({ browser } = await launch(browserCandidates()));
   pool = await PagePool.create(browser, 2);
   outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'crispr-render-'));
 });

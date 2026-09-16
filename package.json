@@ -11,9 +11,9 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/unit/*.test.ts",
-    "test:integration": "node --test tests/integration/*.test.ts",
-    "test:all": "node --test tests/unit/*.test.ts tests/integration/*.test.ts",
+    "test": "node --test --test-concurrency=1 tests/unit/*.test.ts",
+    "test:integration": "node --test --test-concurrency=1 tests/integration/*.test.ts",
+    "test:all": "node --test --test-concurrency=1 tests/unit/*.test.ts tests/integration/*.test.ts",
     "build": "node scripts/build.mjs",
     "package": "node scripts/package.mjs"
   },

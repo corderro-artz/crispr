@@ -23,9 +23,8 @@ import {
 
 export interface RenderOptions extends SizeOptions {
   background?: string;
+  /** Supplies fonts and decides whether missing ones may be fetched. */
   fonts: FontRegistry;
-  /** Generic CSS families that are never treated as substitutions. */
-  noFetch?: boolean;
 }
 
 export interface Substitution {

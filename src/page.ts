@@ -70,9 +70,21 @@ export function measureAndNormalize(): Measured {
     width = el.viewBox.baseVal.width;
     height = el.viewBox.baseVal.height;
   } else {
-    const rect = el.getBoundingClientRect();
-    width = rect.width;
-    height = rect.height;
+    // Last resort: the bounding box of the content, in user units.
+    //
+    // NOT getBoundingClientRect. A standalone SVG with no width, height or
+    // viewBox defaults to 100%x100%, so its client rect is the *viewport* —
+    // 1280x720, or whatever the pool happens to have set. That would silently
+    // produce a viewport-sized PNG instead of failing, which is the worst
+    // possible outcome. getBBox measures the artwork and is viewport-independent.
+    try {
+      const bbox = el.getBBox();
+      width = bbox.width;
+      height = bbox.height;
+    } catch {
+      width = 0;
+      height = 0;
+    }
   }
 
   if (!el.hasAttribute('viewBox') && width > 0 && height > 0) {

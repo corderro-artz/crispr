@@ -31,22 +31,31 @@ export interface ResolveOptions {
 const SHELL_NAMES = ['chrome-headless-shell.exe', 'headless_shell.exe', 'chrome.exe', 'chrome-headless-shell', 'headless_shell', 'chrome'];
 
 /**
- * Pick a browser.
+ * Rank the browsers worth trying, best first.
+ *
+ * A list rather than a single answer because availability cannot be settled by
+ * inspection. `chromium.executablePath()` names the full Chromium build, which
+ * is absent whenever the browser was installed with `--only-shell` — so probing
+ * that path reports "no Playwright browser" on a perfectly good install. Letting
+ * launch try each candidate in turn is the only honest test, and it also covers
+ * a bundled browser that exists but will not start.
  *
  * Order: explicit flag, environment, a `browsers/` folder beside the executable,
- * the font/browser cache, Playwright's own install, then a system branded
- * browser. Only the last is unpinned, because branded Chrome and Edge update
- * themselves and their headless mode differs from the headless shell.
+ * the cache, Playwright's own install, then a system branded browser. Only the
+ * last is unpinned, because branded Chrome and Edge update themselves and their
+ * headless mode differs from the headless shell.
  */
-export function resolveBrowser(opts: ResolveOptions = {}): BrowserChoice {
+export function browserCandidates(opts: ResolveOptions = {}): BrowserChoice[] {
   const env = opts.env ?? process.env;
   const execDir = opts.execDir ?? path.dirname(process.execPath);
 
+  // An explicit choice is the only candidate: silently falling back to a
+  // different browser than the one named would defeat the point of naming it.
   if (opts.browserPath) {
     if (!fs.existsSync(opts.browserPath)) {
       throw new Error(`--browser-path does not exist: ${opts.browserPath}`);
     }
-    return { executablePath: opts.browserPath, source: '--browser-path', unpinned: false };
+    return [{ executablePath: opts.browserPath, source: '--browser-path', unpinned: false }];
   }
 
   const fromEnv = env.CRISPR_BROWSER;
@@ -54,30 +63,25 @@ export function resolveBrowser(opts: ResolveOptions = {}): BrowserChoice {
     if (!fs.existsSync(fromEnv)) {
       throw new Error(`CRISPR_BROWSER does not exist: ${fromEnv}`);
     }
-    return { executablePath: fromEnv, source: 'CRISPR_BROWSER', unpinned: false };
+    return [{ executablePath: fromEnv, source: 'CRISPR_BROWSER', unpinned: false }];
   }
+
+  const candidates: BrowserChoice[] = [];
 
   const beside = findShell(path.join(execDir, 'browsers'));
-  if (beside) return { executablePath: beside, source: 'bundled', unpinned: false };
+  if (beside) candidates.push({ executablePath: beside, source: 'bundled', unpinned: false });
 
   const cached = findShell(path.join(path.dirname(cacheDir(env)), 'browsers'));
-  if (cached) return { executablePath: cached, source: 'cache', unpinned: false };
+  if (cached) candidates.push({ executablePath: cached, source: 'cache', unpinned: false });
 
-  // Playwright resolves its own download when neither path nor channel is given.
-  if (playwrightHasBrowser()) {
-    return { source: 'playwright', unpinned: false };
-  }
+  // Playwright picks its own download, preferring the headless shell, when
+  // neither an executable path nor a channel is given.
+  candidates.push({ source: 'playwright', unpinned: false });
 
-  return { channel: 'msedge', source: 'system msedge', unpinned: true };
-}
+  candidates.push({ channel: 'msedge', source: 'system msedge', unpinned: true });
+  candidates.push({ channel: 'chrome', source: 'system chrome', unpinned: true });
 
-/** Whether Playwright's own browser download is present and launchable. */
-function playwrightHasBrowser(): boolean {
-  try {
-    return fs.existsSync(chromium.executablePath());
-  } catch {
-    return false;
-  }
+  return candidates;
 }
 
 /** Search a browsers directory for a Chromium executable, at any depth. */
@@ -165,11 +169,34 @@ export class PagePool {
   }
 }
 
-/** Launch a browser using a resolved choice. */
-export async function launch(choice: BrowserChoice): Promise<Browser> {
+/** Launch one specific candidate. */
+export async function launchChoice(choice: BrowserChoice): Promise<Browser> {
   return chromium.launch({
     headless: true,
     ...(choice.executablePath ? { executablePath: choice.executablePath } : {}),
     ...(choice.channel ? { channel: choice.channel } : {}),
   });
+}
+
+/**
+ * Launch the first candidate that starts, reporting which one won.
+ *
+ * Every failure is kept so that, when none work, the error names everything
+ * that was tried rather than only the last thing.
+ */
+export async function launch(
+  candidates: BrowserChoice[],
+): Promise<{ browser: Browser; choice: BrowserChoice }> {
+  const failures: string[] = [];
+
+  for (const choice of candidates) {
+    try {
+      return { browser: await launchChoice(choice), choice };
+    } catch (error) {
+      const firstLine = (error as Error).message.split(/\r?\n/)[0] ?? 'failed to launch';
+      failures.push(`  ${choice.source}: ${firstLine}`);
+    }
+  }
+
+  throw new Error(['no usable browser found. Tried:', ...failures].join('\n'));
 }
