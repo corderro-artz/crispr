@@ -166,24 +166,23 @@ crispr brand/ --no-font-fetch --strict-fonts      # offline, and fail on anythin
 
 ## Architecture
 
-```text
-paths -> discover -> [{input, output}]
-                          |
-               one browser, one context
-               pool of N reused pages
-                          |
-  goto(file://input) -> load, fonts.ready, images decoded
-                          |
-  measure and guarantee a viewBox       (src/page.ts)
-                          |
-  verify fonts over CDP                 (src/render.ts)
-     `-> repair: cache, else Google     (src/fonts/*)
-                          |
-  intrinsic + flags -> exact pixels     (src/size.ts)
-                          |
-  resize, screenshot, write
-                          |
-  collect -> summary -> exit code       (src/report.ts)
+```mermaid
+flowchart TD
+    IN["paths"]
+    D["discover<br/>[{ input, output }]"]
+    POOL["one browser, one context<br/>pool of N reused pages"]
+    GOTO["goto(file://input)<br/>load, fonts.ready, images decoded"]
+    VB["measure and guarantee a viewBox<br/>src/page.ts"]
+    VF{"verify fonts over CDP<br/>src/render.ts"}
+    REP["repair from cache, else Google<br/>src/fonts/*"]
+    SZ["intrinsic + flags to exact pixels<br/>src/size.ts"]
+    W["resize, screenshot, write"]
+    RPT(["collect, summary, exit code<br/>src/report.ts"])
+
+    IN --> D --> POOL --> GOTO --> VB --> VF
+    VF -->|substituted| REP --> SZ
+    VF -->|ok| SZ
+    SZ --> W --> RPT
 ```
 
 | Module | Responsibility |
