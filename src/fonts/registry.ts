@@ -36,8 +36,16 @@ export interface RegistryOptions {
 export class FontRegistry {
   /** Families supplied up front, ready to register on any page. */
   readonly #payloads = new Map<string, FontPayload[]>();
-  /** Families already looked up, including misses, so a miss costs one lookup per run. */
-  readonly #attempted = new Set<string>();
+  /**
+   * In-flight and completed lookups, keyed by family.
+   *
+   * The promise is stored rather than a "already attempted" flag so that concurrent
+   * pages asking for the same family all await the same download. A flag set
+   * before the await would make every page but the first see "already tried"
+   * and get nothing back — a race that only appears once more than one page is
+   * rendering, which is to say in every real run and no single-file test.
+   */
+  readonly #lookups = new Map<string, Promise<FontPayload[]>>();
   readonly #fallbacks: Map<string, string>;
   readonly #noFetch: boolean;
   readonly #fetch: Fetcher;
@@ -97,9 +105,16 @@ export class FontRegistry {
   async acquire(family: string): Promise<FontPayload[]> {
     const existing = this.#payloads.get(family);
     if (existing) return existing;
-    if (this.#attempted.has(family)) return [];
-    this.#attempted.add(family);
 
+    const inFlight = this.#lookups.get(family);
+    if (inFlight) return inFlight;
+
+    const lookup = this.#lookup(family);
+    this.#lookups.set(family, lookup);
+    return lookup;
+  }
+
+  async #lookup(family: string): Promise<FontPayload[]> {
     // A fallback changes which font is downloaded, never the name it is
     // registered under: the document's stack names the requested family, so
     // that is the name the FontFace has to carry for the stack to resolve.
@@ -110,7 +125,14 @@ export class FontRegistry {
 
     if (this.#noFetch) return [];
 
-    const resolved = await resolveFamily(target, this.#fetch);
+    let resolved;
+    try {
+      resolved = await resolveFamily(target, this.#fetch);
+    } catch {
+      // A network failure is not a reason to abort a render. The substitution
+      // is still reported, and --strict-fonts still fails the run.
+      return [];
+    }
     if (!resolved) return [];
 
     writeCached(target, resolved.files, this.#env);

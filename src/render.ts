@@ -1,8 +1,9 @@
 /**
  * Rendering one SVG to one PNG.
  *
- * The sequence is: navigate, wait, register known fonts, measure, detect
- * substitution, repair it if possible, size, capture.
+ * The sequence is: navigate, wait, measure, detect substitution, repair it if
+ * possible, size, capture. Fonts are registered only when a file turns out to
+ * need one, which keeps text-free files off the font path entirely.
  */
 
 import fs from 'node:fs';
@@ -71,11 +72,13 @@ export async function renderOne(lease: PageLease, job: Job, opts: RenderOptions)
   await page.evaluate(waitForReady);
 
   // Navigation replaces the document, and `document.fonts` with it, so whatever
-  // this page carried for the previous file is gone. Anything the registry has
-  // learned since — including families fetched to repair an earlier file — is
-  // re-registered here, which is what stops the same fetch happening twice.
+  // this page carried for the previous file is gone.
+  //
+  // Fonts are registered lazily, only once a file is shown to need one. Doing it
+  // eagerly would push every supplied family through `evaluate` on every file —
+  // Noto Sans JP alone is 9.5 MB, or 12.7 MB once base64-encoded — including for
+  // files with no text at all.
   lease.registered.clear();
-  await ensureRegistered(lease, opts.fonts.payloads());
 
   const intrinsic = await page.evaluate(measureAndNormalize);
   if (!(intrinsic.width > 0) || !(intrinsic.height > 0)) {
@@ -109,14 +112,6 @@ export async function renderOne(lease: PageLease, job: Job, opts: RenderOptions)
   });
 
   return { input: job.input, output: job.output, ...size, substitutions, fetched };
-}
-
-/** Register any payloads this page has not seen. Fonts persist across navigations. */
-async function ensureRegistered(lease: PageLease, payloads: { family: string; base64: string }[]): Promise<void> {
-  for (const payload of payloads) {
-    await lease.page.evaluate(registerFont, payload);
-    lease.registered.add(payload.family);
-  }
 }
 
 /**

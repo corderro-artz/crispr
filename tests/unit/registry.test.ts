@@ -165,3 +165,26 @@ test('cached paths are namespaced by family slug', () => {
 test('reading an absent cache yields an empty list rather than throwing', () => {
   assert.deepEqual(readCached('Never Cached', { CRISPR_CACHE_DIR: path.join(os.tmpdir(), 'nope-x9') }), []);
 });
+
+test('concurrent requests for the same family share one lookup', async (t) => {
+  const { fetch, calls } = stub({
+    [`${RAW}/ofl/manrope/METADATA.pb`]: 'fonts {\n filename: "Manrope[wght].ttf"\n}',
+    [`${RAW}/ofl/manrope/Manrope[wght].ttf`]: Buffer.from('FONT'),
+  });
+  const registry = await FontRegistry.create({ fetch, env: tempEnv(t) });
+
+  // Eight pages asking at once, as a real parallel run does. A flag set before
+  // the await would leave seven of them empty-handed.
+  const all = await Promise.all(Array.from({ length: 8 }, () => registry.acquire('Manrope')));
+
+  for (const payloads of all) assert.equal(payloads.length, 1, 'every caller must get the font');
+  assert.equal(calls.length, 2, 'the family should be fetched exactly once');
+});
+
+test('a network failure yields no font rather than aborting', async (t) => {
+  const failing: Fetcher = async () => {
+    throw new Error('getaddrinfo ENOTFOUND');
+  };
+  const registry = await FontRegistry.create({ fetch: failing, env: tempEnv(t) });
+  assert.deepEqual(await registry.acquire('Anything'), []);
+});
