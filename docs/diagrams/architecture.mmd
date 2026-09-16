@@ -1,11 +1,19 @@
-flowchart LR
-    D["discover<br/>[{ input, output }]"]
-    POOL["load in a pooled<br/>browser page<br/>fonts.ready, images decoded"]
-    VB["guarantee a viewBox<br/>intrinsic size + flags"]
-    VF{"verify fonts<br/>over CDP"}
-    REP["repair fonts<br/>cache, else Google"]
-    OUT(["resize, screenshot, write<br/>summary + exit code"])
+flowchart TB
+    subgraph LOAD ["load"]
+        direction LR
+        D["discover<br/>[{ input, output }]"]
+        POOL["load in a pooled<br/>browser page<br/>fonts.ready, images decoded"]
+        VB["guarantee a viewBox<br/>intrinsic size + flags"]
+        D --> POOL --> VB
+    end
 
-    D --> POOL --> VB --> VF
-    VF -->|ok| OUT
-    VF -->|substituted| REP --> OUT
+    subgraph EMIT ["fonts, then output"]
+        direction LR
+        VF{"verify fonts<br/>over CDP"}
+        REP["repair fonts<br/>cache, else Google"]
+        OUT(["resize, screenshot, write<br/>summary + exit code"])
+        VF -->|ok| OUT
+        VF -->|substituted| REP --> OUT
+    end
+
+    LOAD --> EMIT

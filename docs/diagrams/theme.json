@@ -1,0 +1,49 @@
+{
+  "note": "Diagram theme for the Vaporsoft product READMEs. Every value is a stated mix of two core brand tokens — see mix() in the derivation below — so it can be re-derived rather than remembered. Do not hand-edit: change the mix, re-run build.mjs.",
+  "derivedFrom": "https://www.vaporsoft.dev/brand/palette.json",
+  "paletteVersion": "1.0.0",
+  "derivation": {
+    "dark.plate": "ink",
+    "dark.node": "mix(ink, paper, 0.06)",
+    "dark.nodeBorder": "mix(ink, paper, 0.20)",
+    "dark.text": "paper",
+    "dark.muted": "mix(paper, ink, 0.30)",
+    "dark.line": "mix(ink, paper, 0.38)",
+    "dark.accent": "ramp.tints[0] — carmine is 2.63:1 on ink, its first tint is 4.01:1",
+    "dark.clusterBkg": "mix(ink, paper, 0.03)",
+    "dark.clusterBorder": "mix(ink, carmine, 0.45)",
+    "light.plate": "theme.light.surface",
+    "light.node": "mix(surface, white, 0.55)",
+    "light.nodeBorder": "mix(surface, graphite, 0.20)",
+    "light.text": "graphite",
+    "light.muted": "mix(graphite, surface, 0.42)",
+    "light.line": "mix(surface, graphite, 0.45)",
+    "light.accent": "carmine — 6.66:1 on the light surface",
+    "light.clusterBkg": "mix(surface, graphite, 0.035)",
+    "light.clusterBorder": "mix(surface, carmine, 0.40)"
+  },
+  "dark": {
+    "plate": "#07080b",
+    "node": "#151618",
+    "nodeBorder": "#363637",
+    "text": "#f2ede6",
+    "muted": "#aca8a4",
+    "line": "#605f5e",
+    "accent": "#b44f5b",
+    "accentSoft": "#5c1520",
+    "clusterBkg": "#0e0f12",
+    "clusterBorder": "#4c121c"
+  },
+  "light": {
+    "plate": "#f4efe8",
+    "node": "#faf8f5",
+    "nodeBorder": "#c7c3be",
+    "text": "#121318",
+    "muted": "#716f6f",
+    "line": "#8e8c8a",
+    "accent": "#a11f31",
+    "accentSoft": "#c67d83",
+    "clusterBkg": "#ece7e1",
+    "clusterBorder": "#d39c9f"
+  }
+}
