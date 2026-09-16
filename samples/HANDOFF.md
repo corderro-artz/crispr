@@ -38,11 +38,22 @@ matching what the SVG source declares. Every text node was verified via
 Chrome DevTools Protocol `CSS.getPlatformFontsForNode` to have actually
 rasterized with a Noto family — no substitution.
 
-**This leaves the SVGs themselves inconsistent in-browser.** Worth deciding
-separately whether to (a) have the site load Noto, (b) change the SVGs to the
-site's own typography, or (c) convert the wordmark text to paths so the mark is
-font-independent. Option (c) is the usual answer for brand assets. Out of scope
-for this handoff.
+**This leaves the SVGs themselves inconsistent in-browser, and it cannot be fixed
+from CSS.** The site serves these SVGs directly to visitors:
+
+
+
+An SVG loaded through `<img>` renders in an isolated context: it cannot see the
+page stylesheet and cannot fetch webfonts. So adding Noto to `global.css` would
+**not** reach these marks. Each visitor gets whatever system font happens to
+match — Yu Gothic on a Japanese-enabled Windows box, something else on macOS,
+Android or Linux.
+
+That leaves two real options: convert the wordmark text to paths, or embed the
+font inside each SVG as a data URI. Embedding is impractical here because the CJK
+glyphs need Noto Sans JP, which is ~9.5 MB. **Converting text to paths is the fix.**
+It also makes the tspan anchoring bug structurally impossible, since there would
+be no text runs left to anchor. Out of scope for this handoff.
 
 ## What to replace
 

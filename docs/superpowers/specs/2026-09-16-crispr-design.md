@@ -105,9 +105,10 @@ crispr <path...> [options]
   -H, --height <px>       pin output height
       --dpi <n>           equivalent to --scale n/96
   -b, --background <css>  solid background colour; default transparent
-      --font <spec>       font file, or Family=path; repeatable
+      --font <spec>       font file, Family=path, or google:Family; repeatable
       --font-dir <dir>    register every font in a directory
       --font-fallback <spec>  Requested=Available family remap; repeatable
+      --no-font-fetch     do not auto-download missing fonts
       --strict-fonts      treat font substitution as an error
       --list-fonts        report requested vs actual fonts, write nothing
   -j, --jobs <n>          concurrent pages; default min(cpus, 8)
@@ -162,10 +163,55 @@ handful of times per run regardless of batch size.
 |---|---|
 | `--font <path>` | Register a font file. Family name is read from the font's internal `name` table. |
 | `--font <Family>=<path>` | Register under an explicit family name. |
+| `--font google:<Family>` | Fetch a family from Google Fonts and register it. |
 | `--font-dir <dir>` | Register every font file in a directory. |
 | `--font-fallback <Requested>=<Available>` | Remap a missing family to an installed system family. |
+| `--no-font-fetch` | Disable automatic fetching; unresolved families stay substituted. |
 | `--strict-fonts` | Treat any substitution as a per-file error. |
 | `--list-fonts` | Report requested versus actual fonts for each file, then exit without writing PNGs. |
+
+**Automatic fetching.** Nobody wants a PNG rendered in a font they did not ask
+for, so detecting a substitution is not enough — the tool resolves it. When a
+text node resolves to a family outside its requested stack, crispr looks the
+requested family up on Google Fonts, downloads it, registers it, and re-captures.
+This is on by default; `--no-font-fetch` turns it off for airgapped or
+deterministic builds.
+
+Resolution avoids the Google Fonts Web API, which needs an API key, and avoids
+the GitHub contents API, which rate-limits unauthenticated callers at 60 requests
+per hour. Instead it reads the `google/fonts` repository over
+`raw.githubusercontent.com`, which has neither restriction:
+
+```
+https://raw.githubusercontent.com/google/fonts/main/<license>/<slug>/METADATA.pb
+```
+
+The slug is the family name lowercased with spaces removed. Licenses are tried in
+the order `ofl`, `apache`, `ufl` — the fallback is required in practice, since
+`Syncopate` lives under `apache` while most families live under `ofl`. A family
+missing from all three is genuinely unavailable, which is how a typo or a
+non-Google font is distinguished from a network failure.
+
+`METADATA.pb` lists the exact filenames, which matters because families ship in
+two shapes. Variable families expose one file covering an axis range
+(`NotoSansJP[wght].ttf`), registered once with `weight: '100 900'` so any weight
+resolves. Static families ship one file per weight
+(`ZenKakuGothicNew-Light.ttf`, `-Regular.ttf`, `-Medium.ttf`), so only the weights
+a document actually uses are fetched and registered.
+
+The Google Fonts CSS endpoint is deliberately not used. For CJK families it
+returns over a hundred `unicode-range` subsets per weight — 264 files for the two
+Noto families alone — which would mean managing subset selection at runtime for
+no benefit. The unsubsetted TTF is one download and one `FontFace`.
+
+Downloads are cached under `%LOCALAPPDATA%\crispr\fonts`, keyed by family and
+filename, so a family is fetched once per machine rather than once per run. Cache
+hits make repeat runs fully offline.
+
+Because automatic fetching makes output depend on network state on first run, the
+cache is the reproducibility boundary: a populated cache plus `--no-font-fetch`
+gives a build that cannot silently change. CI pipelines that care should commit or
+restore the cache and pass that flag.
 
 Family names are parsed from the sfnt `name` table, preferring nameID 16
 (typographic family) and falling back to nameID 1. This works for `.ttf` and
@@ -259,6 +305,7 @@ Cases handled explicitly, each with a message naming the file:
 - SVG has no resolvable dimensions (no width/height, no viewBox, zero bbox)
 - Computed dimensions exceed the 16384 px clamp
 - Output path is not writable
+- A requested font family could not be found on Google Fonts (warning, or error under `--strict-fonts`)
 - A requested font family was substituted (warning by default, error under `--strict-fonts`)
 - No usable browser found, after the whole resolution chain fails
 
