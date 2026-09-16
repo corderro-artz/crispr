@@ -1,0 +1,11 @@
+flowchart LR
+    D["discover<br/>[{ input, output }]"]
+    POOL["load in a pooled<br/>browser page<br/>fonts.ready, images decoded"]
+    VB["guarantee a viewBox<br/>intrinsic size + flags"]
+    VF{"verify fonts<br/>over CDP"}
+    REP["repair fonts<br/>cache, else Google"]
+    OUT(["resize, screenshot, write<br/>summary + exit code"])
+
+    D --> POOL --> VB --> VF
+    VF -->|ok| OUT
+    VF -->|substituted| REP --> OUT
