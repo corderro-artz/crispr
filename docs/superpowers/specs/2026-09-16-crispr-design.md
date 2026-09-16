@@ -105,6 +105,11 @@ crispr <path...> [options]
   -H, --height <px>       pin output height
       --dpi <n>           equivalent to --scale n/96
   -b, --background <css>  solid background colour; default transparent
+      --font <spec>       font file, or Family=path; repeatable
+      --font-dir <dir>    register every font in a directory
+      --font-fallback <spec>  Requested=Available family remap; repeatable
+      --strict-fonts      treat font substitution as an error
+      --list-fonts        report requested vs actual fonts, write nothing
   -j, --jobs <n>          concurrent pages; default min(cpus, 8)
       --browser-path <p>  explicit Chromium executable
       --quiet             errors only
@@ -123,6 +128,60 @@ to the `.exe` for packaged builds, and the current working directory otherwise.
 The directory is created if missing. Existing PNGs are overwritten.
 
 `-H` carries `--height` because `-h` is reserved for help.
+
+### Fonts
+
+An SVG that names a font the machine does not have still renders. Chromium
+substitutes silently, producing a plausible but typographically wrong PNG. This
+is the most dangerous failure mode in the tool, because nothing looks broken —
+the output is simply not the design. Detection is therefore mandatory, not
+optional, and substitution is reported by default rather than behind a flag.
+
+**Detection.** `document.fonts.check()` cannot be used: it returns `true` for
+families that do not exist, including invented ones. The reliable source is the
+Chrome DevTools Protocol method `CSS.getPlatformFontsForNode`, which reports the
+font Chromium actually rasterized with, per text node, with a glyph count. A
+CDP session is opened once per page and reused. After layout, every `<text>` and
+`<tspan>` node is queried and the reported family is compared against the
+families named in that node's `font-family` list. Anything outside the list is a
+substitution.
+
+Per-glyph fallback is legitimate and must not be reported as an error: a Latin
+font correctly yields to a CJK font for CJK glyphs, and `getPlatformFontsForNode`
+reports both families for such a node. A node is only flagged when the font used
+appears nowhere in its requested stack.
+
+**Supplying fonts.** Fonts are registered at runtime by constructing a `FontFace`
+from a base64 data URI and adding it to `document.fonts`. Data URIs are used
+rather than `file://` URLs because a `file://` document cannot fetch sibling
+`file://` resources without weakening Chromium's security flags. Registration
+happens once per pooled page, not once per file, so the base64 cost is paid a
+handful of times per run regardless of batch size.
+
+| Flag | Behaviour |
+|---|---|
+| `--font <path>` | Register a font file. Family name is read from the font's internal `name` table. |
+| `--font <Family>=<path>` | Register under an explicit family name. |
+| `--font-dir <dir>` | Register every font file in a directory. |
+| `--font-fallback <Requested>=<Available>` | Remap a missing family to an installed system family. |
+| `--strict-fonts` | Treat any substitution as a per-file error. |
+| `--list-fonts` | Report requested versus actual fonts for each file, then exit without writing PNGs. |
+
+Family names are parsed from the sfnt `name` table, preferring nameID 16
+(typographic family) and falling back to nameID 1. This works for `.ttf` and
+`.otf`. WOFF and WOFF2 are compressed and their name table is not readable
+without a decompressor, so those formats require the explicit `Family=path` form;
+supplying a bare `.woff2` path is a usage error whose message names the required
+form. Adding a Brotli decompressor to auto-derive WOFF2 family names is not worth
+the dependency.
+
+A system font that is already installed needs no flag — it resolves natively.
+`--font-fallback` exists for the case where the correct font cannot be installed
+and a deliberate substitute is better than an arbitrary one.
+
+Default behaviour on substitution is a warning per affected file listing
+requested and actual families. `--strict-fonts` promotes it to an error, for
+build pipelines where a wrong-but-plausible PNG is worse than a failed build.
 
 ### Concurrency
 
@@ -200,6 +259,7 @@ Cases handled explicitly, each with a message naming the file:
 - SVG has no resolvable dimensions (no width/height, no viewBox, zero bbox)
 - Computed dimensions exceed the 16384 px clamp
 - Output path is not writable
+- A requested font family was substituted (warning by default, error under `--strict-fonts`)
 - No usable browser found, after the whole resolution chain fails
 
 Conflicting flags and unknown flags fail immediately with usage text, before any
@@ -223,6 +283,8 @@ probes at known coordinates. Fixtures cover the cases most likely to break:
 | External `<image href>` | base URL correctness and image decode wait |
 | Gradient with transparency | `omitBackground` and alpha preservation |
 | Dimensions in `mm` / `pt` | unit conversion |
+| `text-anchor=middle` with a mid-string `<tspan>` | per-chunk re-anchoring regressions |
+| Text naming an uninstalled font | substitution detection via CDP |
 
 ## Packaging
 
