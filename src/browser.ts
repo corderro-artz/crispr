@@ -8,7 +8,8 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { chromium, type Browser, type BrowserContext, type CDPSession, type Page } from 'playwright-core';
+import type { Browser, BrowserContext, CDPSession, Page } from 'playwright-core';
+import { chromium } from './playwright.ts';
 import { cacheDir } from './fonts/cache.ts';
 
 export interface BrowserChoice {
@@ -171,7 +172,7 @@ export class PagePool {
 
 /** Launch one specific candidate. */
 export async function launchChoice(choice: BrowserChoice): Promise<Browser> {
-  return chromium.launch({
+  return chromium().launch({
     headless: true,
     ...(choice.executablePath ? { executablePath: choice.executablePath } : {}),
     ...(choice.channel ? { channel: choice.channel } : {}),

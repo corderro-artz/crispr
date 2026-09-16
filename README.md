@@ -84,15 +84,18 @@ to decode — the same guarantee, without the fixed penalty.
 
 Prebuilt Windows builds are on the [releases page](https://github.com/corderro-artz/crispr/releases/latest).
 
-| Shape | Size | Node needed | For |
+| Shape | Download | Node needed | For |
 | --- | --- | --- | --- |
-| **Portable** | 130 MB | No | Unzip anywhere and run. Start here if you are unsure. |
-| **Single file** | 130 MB | No | One `.exe`. Unpacks itself on first launch, so that launch is slower. |
-| **Single file, thin** | 45 MB | No | One `.exe` that downloads Chromium on first run and caches it. |
-| **Node-dependent** | 2 MB | Yes | The same, as a folder, using a Chromium you already have. |
+| **Portable** | 147 MB | No | Unzip anywhere and run. Chromium included, works offline. Start here if you are unsure. |
+| **Single file, thin** | 36 MB | No | The same `crispr.exe`, without Chromium. Downloads it once on first run and caches it. |
+| **Node-dependent** | 3 MB | Yes | A folder plus a `crispr.cmd` shim, using a Node and a Chromium you already have. |
 
-The shapes differ only in where the browser comes from. crispr looks for one in this order, and the
-first that launches wins:
+Every shape carries `node_modules/playwright-core` as real files. It cannot be bundled into the
+executable: it lazily requires `chromium-bidi` submodules by path and resolves its own driver
+relative to its location on disk, so a bundled copy builds cleanly and then cannot launch anything.
+
+The shapes otherwise differ only in where the browser comes from. crispr looks for one in this
+order, and the first that actually launches wins:
 
 1. `--browser-path`
 2. `CRISPR_BROWSER`
@@ -111,7 +114,8 @@ git clone https://github.com/corderro-artz/crispr.git
 cd crispr
 npm install
 npx playwright install chromium --only-shell
-npm run build
+npm run build       # dist/crispr.js
+npm run package     # build/release/*.zip
 ```
 
 ## Quick Start
@@ -296,12 +300,15 @@ Several of the sharper bugs were only reachable from integration, which is why i
 ```bash
 npm run typecheck
 npm test
-npm run build
+npm run build       # dist/crispr.js
+npm run package     # build/release/*.zip
 ```
 
-`npm run build` bundles to `dist/crispr.js` with esbuild. `playwright-core` stays external: it ships
-platform-specific driver files and spawns its own subprocess, so bundling it produces a file that
-builds and then cannot launch anything.
+`npm run build` bundles to `dist/crispr.js` with esbuild. `npm run package` additionally produces a
+CommonJS bundle, injects it into a copy of the Node binary with `postject` to make `crispr.exe`, and
+assembles the three release shapes into `build/release`.
+
+`playwright-core` stays external in both: see [Installation](#installation).
 
 ## Troubleshooting
 
