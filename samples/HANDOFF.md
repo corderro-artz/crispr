@@ -41,7 +41,10 @@ rasterized with a Noto family — no substitution.
 **This leaves the SVGs themselves inconsistent in-browser, and it cannot be fixed
 from CSS.** The site serves these SVGs directly to visitors:
 
-
+```astro
+<img src={`/brand/${icon}/${icon}-icon.svg`} width="72" height="72" />
+<link rel="icon" type="image/svg+xml" href="/brand/vaporsoft/vaporsoft-favicon.svg" />
+```
 
 An SVG loaded through `<img>` renders in an isolated context: it cannot see the
 page stylesheet and cannot fetch webfonts. So adding Noto to `global.css` would
