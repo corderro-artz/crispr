@@ -166,24 +166,13 @@ crispr brand/ --no-font-fetch --strict-fonts      # offline, and fail on anythin
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    IN["paths"]
-    D["discover<br/>[{ input, output }]"]
-    POOL["one browser, one context<br/>pool of N reused pages"]
-    GOTO["goto(file://input)<br/>load, fonts.ready, images decoded"]
-    VB["measure and guarantee a viewBox<br/>src/page.ts"]
-    VF{"verify fonts over CDP<br/>src/render.ts"}
-    REP["repair from cache, else Google<br/>src/fonts/*"]
-    SZ["intrinsic + flags to exact pixels<br/>src/size.ts"]
-    W["resize, screenshot, write"]
-    RPT(["collect, summary, exit code<br/>src/report.ts"])
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/architecture-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/diagrams/architecture-light.svg">
+  <img alt="CRISPR architecture: discover input and output paths, load each in a pooled browser page, guarantee a viewBox and verify fonts over CDP with repair from cache or Google, then resolve exact pixels, screenshot, write, and collect a summary and exit code." src="docs/diagrams/architecture-light.svg">
+</picture>
 
-    IN --> D --> POOL --> GOTO --> VB --> VF
-    VF -->|substituted| REP --> SZ
-    VF -->|ok| SZ
-    SZ --> W --> RPT
-```
+<sub>Source: <a href="docs/diagrams/architecture.mmd"><code>docs/diagrams/architecture.mmd</code></a></sub>
 
 | Module | Responsibility |
 | --- | --- |
