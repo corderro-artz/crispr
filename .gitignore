@@ -1,5 +1,4 @@
 node_modules/
-samples/brand-png/
 dist/
 build/
 *.log
