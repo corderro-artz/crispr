@@ -100,15 +100,20 @@ export class FontRegistry {
     if (this.#attempted.has(family)) return [];
     this.#attempted.add(family);
 
-    const cached = readCached(family, this.#env);
+    // A fallback changes which font is downloaded, never the name it is
+    // registered under: the document's stack names the requested family, so
+    // that is the name the FontFace has to carry for the stack to resolve.
+    const target = this.#fallbacks.get(family) ?? family;
+
+    const cached = readCached(target, this.#env);
     if (cached.length > 0) return this.#store(family, cached);
 
     if (this.#noFetch) return [];
 
-    const resolved = await resolveFamily(family, this.#fetch);
+    const resolved = await resolveFamily(target, this.#fetch);
     if (!resolved) return [];
 
-    writeCached(family, resolved.files, this.#env);
+    writeCached(target, resolved.files, this.#env);
     return this.#store(family, resolved.files);
   }
 
