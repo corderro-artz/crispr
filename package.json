@@ -1,19 +1,29 @@
 {
   "name": "crispr",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "directories": {
-    "doc": "docs"
+  "version": "0.1.0",
+  "description": "Lossless SVG to PNG rasterization through headless Chromium",
+  "type": "module",
+  "bin": {
+    "crispr": "./dist/crispr.js"
+  },
+  "engines": {
+    "node": ">=22"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/unit/*.test.ts",
+    "test:integration": "node --test tests/integration/*.test.ts",
+    "test:all": "node --test tests/unit/*.test.ts tests/integration/*.test.ts",
+    "build": "node scripts/build.mjs",
+    "package": "node scripts/package.mjs"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "playwright-core": "^1.63.0"
-  }
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.3",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.9.3"
+  },
+  "license": "MIT"
 }
