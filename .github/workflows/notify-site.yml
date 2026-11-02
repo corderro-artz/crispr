@@ -1,0 +1,44 @@
+name: Update vaporsoft.dev
+
+# www.vaporsoft.dev/<repo>/ renders this repository: its readme, releases and
+# recent commits. The site rebuilds itself from GitHub; this tells it to do so
+# now rather than at its next half-hourly check.
+#
+# Needs one secret, SITE_DISPATCH_TOKEN: a fine-grained personal access token
+# with access to corderro-artz/corderro-artz.github.io only, and the
+# "Contents: Read and write" permission. Without it this job exits cleanly and
+# the site picks the change up on its own schedule.
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published, edited, deleted]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: notify-site
+  cancel-in-progress: true
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask vaporsoft.dev to rebuild
+        env:
+          TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
+          REPO: ${{ github.event.repository.name }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::notice::SITE_DISPATCH_TOKEN is not set. vaporsoft.dev picks this change up within half an hour."
+            exit 0
+          fi
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/corderro-artz/corderro-artz.github.io/dispatches \
+            -d "{\"event_type\":\"repo-updated\",\"client_payload\":{\"repo\":\"$REPO\"}}"
+          echo "Asked vaporsoft.dev to rebuild for $REPO."
